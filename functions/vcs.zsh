@@ -108,6 +108,29 @@ function +vi-hg-bookmarks() {
   fi
 }
 
+function +vi-hg-untracked() {
+	local unknown
+
+	unknown=$(hg st -u | wc -l)
+	if [[ $unknown -ne 0 ]]; then
+    hook_com[unstaged]+=" %F{$POWERLEVEL9K_VCS_FOREGROUND}$(print_icon 'VCS_UNTRACKED_ICON')%f"
+	fi
+}
+
+function +vi-hg-aheadbehind() {
+	local ahead behind
+  local -a hgstatus
+
+
+  ahead=$(hg prompt '{outgoing|count}')
+  (( ahead )) && hgstatus+=( " %F{$POWERLEVEL9K_VCS_FOREGROUND}$(print_icon 'VCS_OUTGOING_CHANGES_ICON')${ahead// /}%f" )
+
+  behind=$(hg prompt '{incoming|count}')
+  (( behind )) && hgstatus+=( " %F{$POWERLEVEL9K_VCS_FOREGROUND}$(print_icon 'VCS_INCOMING_CHANGES_ICON')${behind// /}%f" )
+
+  hook_com[misc]+=${(j::)hgstatus}
+}
+
 function +vi-vcs-detect-changes() {
   if [[ "${hook_com[vcs]}" == "git" ]]; then
 
