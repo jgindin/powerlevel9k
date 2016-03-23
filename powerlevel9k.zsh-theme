@@ -762,7 +762,7 @@ prompt_vcs() {
   zstyle ':vcs_info:*' unstagedstr " %F{$POWERLEVEL9K_VCS_FOREGROUND}$(print_icon 'VCS_UNSTAGED_ICON')%f"
 
   zstyle ':vcs_info:git*+set-message:*' hooks vcs-detect-changes git-untracked git-aheadbehind git-stash git-remotebranch git-tagname
-  zstyle ':vcs_info:hg*+set-message:*' hooks vcs-detect-changes
+  zstyle ':vcs_info:hg*+set-message:*' hooks vcs-detect-changes hg-untracked hg-aheadbehind
 
   # For Hg, only show the branch name
   zstyle ':vcs_info:hg*:*' branchformat "$(print_icon 'VCS_BRANCH_ICON')%b"
