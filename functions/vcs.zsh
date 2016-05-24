@@ -206,7 +206,10 @@ function +vi-hg-untracked() {
 
 	unknown=$(hg st -u | wc -l)
 	if [[ $unknown -ne 0 ]]; then
-    hook_com[unstaged]+=" %F{$POWERLEVEL9K_VCS_FOREGROUND}$(print_icon 'VCS_UNTRACKED_ICON')%f"
+    hook_com[unstaged]+=" $(print_icon 'VCS_UNTRACKED_ICON')"
+    VCS_WORKDIR_HALF_DIRTY=true
+  else
+    VCS_WORKDIR_HALF_DIRTY=false
 	fi
 }
 
