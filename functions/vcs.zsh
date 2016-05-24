@@ -131,6 +131,16 @@ function +vi-hg-aheadbehind() {
   hook_com[misc]+=${(j::)hgstatus}
 }
 
+function +vi-hg-shelves() {
+  local -a shelves
+
+  shelves=$(hg shelve -l | wc -l)
+  if [[ $shelves -ne 0 ]]; then
+    hook_com[misc]+=" $(print_icon 'VCS_STASH_ICON')${shelves// /}"
+  fi
+}
+
+
 function +vi-vcs-detect-changes() {
   if [[ "${hook_com[vcs]}" == "git" ]]; then
     vcs_visual_identifier='VCS_GIT_ICON'
