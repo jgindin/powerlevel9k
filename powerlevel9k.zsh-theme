@@ -940,7 +940,7 @@ prompt_virtualenv() {
 
 # Main prompt
 build_left_prompt() {
-  defined POWERLEVEL9K_LEFT_PROMPT_ELEMENTS || POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(context dir rbenv vcs)
+  defined POWERLEVEL9K_LEFT_PROMPT_ELEMENTS || POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(context dir rbenv vcs $POWERLEVEL9K_LEFT_PROMPT_EXTRA_ELEMENTS)
 
   local index=1
   for element in "${POWERLEVEL9K_LEFT_PROMPT_ELEMENTS[@]}"; do
