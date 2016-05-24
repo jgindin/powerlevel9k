@@ -1896,7 +1896,7 @@ prompt_powerlevel9k_setup() {
       fi
   fi
 
-  defined POWERLEVEL9K_LEFT_PROMPT_ELEMENTS || POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(context dir vcs)
+  defined POWERLEVEL9K_LEFT_PROMPT_ELEMENTS || POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(context dir rbenv vcs $POWERLEVEL9K_LEFT_PROMPT_EXTRA_ELEMENTS)
   defined POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS || POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=(status root_indicator background_jobs history time)
 
   # Display a warning if deprecated segments are in use.
