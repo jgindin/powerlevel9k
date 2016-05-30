@@ -202,20 +202,33 @@ function +vi-hg-shelves() {
 
 
 function +vi-hg-untracked() {
-	local unknown
-
-	unknown=$(hg st -u | wc -l)
-	if [[ $unknown -ne 0 ]]; then
-    hook_com[unstaged]+=" $(print_icon 'VCS_UNTRACKED_ICON')"
-    VCS_WORKDIR_HALF_DIRTY=true
-  else
-    VCS_WORKDIR_HALF_DIRTY=false
-	fi
+	# TODO:
+	#   I'd like this function to work and then be a nice mirror to the git side of things. But...it seems to put the
+	#   untracked info in a weird spot in the prompt. So, instead, I've incorporated it into the aheadbehind function below.
+	#local unknown
+  #
+	#unknown=$(hg st -u | wc -l)
+	#if [[ $unknown -ne 0 ]]; then
+  #  hook_com[unstaged]+=" $(print_icon 'VCS_UNTRACKED_ICON')${unknown// /}"
+  #  VCS_WORKDIR_HALF_DIRTY=true
+  #else
+  #  VCS_WORKDIR_HALF_DIRTY=false
+	#fi
 }
 
 function +vi-hg-aheadbehind() {
 	local ahead behind
   local -a hgstatus
+	local unknown
+
+	unknown=$(hg st -u | wc -l)
+	if [[ $unknown -ne 0 ]]; then
+		# Note that I had to add a space after the icon or else the value is run over by the icon, and you can't read it.
+		hgstatus+=( " %F{$POWERLEVEL9K_VCS_FOREGROUND}$(print_icon 'VCS_UNTRACKED_ICON') ${unknown// /}%f" )
+    VCS_WORKDIR_HALF_DIRTY=true
+  else
+    VCS_WORKDIR_HALF_DIRTY=false
+	fi
 
 
   ahead=$(hg prompt '{outgoing|count}')
