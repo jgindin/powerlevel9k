@@ -1,3 +1,4 @@
+#@IgnoreInspection BashAddShebang
 # vim:ft=zsh ts=2 sw=2 sts=2 et fenc=utf-8
 ################################################################
 # vcs
@@ -98,31 +99,74 @@ function +vi-git-stash() {
 }
 
 function +vi-hg-bookmarks() {
-  if [[ -n "${hgbmarks[@]}" ]]; then
-    hook_com[hg-bookmark-string]=" $(print_icon 'VCS_BOOKMARK_ICON')${hgbmarks[@]}"
+	local otherbmarks
+
+	# The original code here relied on the zsh function in /usr/share/zsh/functions/VCS_Info/Backends/VCS_INFO_get_data_hg
+	#   However, there's a bug in that code ;-)
+	#   Specifically, when it looks for the active bookmark, the code there simply looks at the hashcode of the current
+	#   changeset and compares it to the hashcode for each bookmark. This means that when you're at a revision which
+	#   happens to have a bookmark, it'll look like you're at that bookmark, even though you're not.
+	#
+  #if [[ -n "${hgbmarks[@]}" ]]; then
+  #  hook_com[hg-bookmark-string]=" $(print_icon 'VCS_BOOKMARK_ICON')${hgbmarks[@]}"
+  #
+  #  # To signal that we want to use the sting we just generated, set the special
+  #  # variable `ret' to something other than the default zero:
+  #  ret=1
+  #  return 0
+  #fi
+
+  if [[ -n ${curbm} ]]; then
+		# This removes the current bookmark from the array of bookmarks also at this same changeset
+		hgbmarks[(i)$curbm]=()
+
+		if [[ -n "${hgbmarks[@]}" ]]; then
+			otherbmarks="("${hgbmarks[@]}")"
+		fi
+
+    hook_com[hg-bookmark-string]=" $(print_icon 'VCS_BOOKMARK_ICON')${curbm} $otherbmarks"
 
     # To signal that we want to use the sting we just generated, set the special
     # variable `ret' to something other than the default zero:
     ret=1
-    return 0
+  else
+    # If we don't unset this, then the zsh function (see the powerlevel9k.zsh-theme line:
+    #   zstyle ':vcs_info:hg*:*' get-bookmarks true
+    # causes the bookmark to still show up.
+		unset hgbmarks
   fi
+
+  return 0
 }
 
 function +vi-hg-untracked() {
-	local unknown
-
-	unknown=$(hg st -u | wc -l)
-	if [[ $unknown -ne 0 ]]; then
-    hook_com[unstaged]+=" $(print_icon 'VCS_UNTRACKED_ICON')"
-    VCS_WORKDIR_HALF_DIRTY=true
-  else
-    VCS_WORKDIR_HALF_DIRTY=false
-	fi
+	# TODO:
+	#   I'd like this function to work and then be a nice mirror to the git side of things. But...it seems to put the
+	#   untracked info in a weird spot in the prompt. So, instead, I've incorporated it into the aheadbehind function below.
+	#local unknown
+  #
+	#unknown=$(hg st -u | wc -l)
+	#if [[ $unknown -ne 0 ]]; then
+  #  hook_com[unstaged]+=" $(print_icon 'VCS_UNTRACKED_ICON')${unknown// /}"
+  #  VCS_WORKDIR_HALF_DIRTY=true
+  #else
+  #  VCS_WORKDIR_HALF_DIRTY=false
+	#fi
 }
 
 function +vi-hg-aheadbehind() {
 	local ahead behind
   local -a hgstatus
+	local unknown
+
+	unknown=$(hg st -u | wc -l)
+	if [[ $unknown -ne 0 ]]; then
+		# Note that I had to add a space after the icon or else the value is run over by the icon, and you can't read it.
+		hgstatus+=( " %F{$POWERLEVEL9K_VCS_FOREGROUND}$(print_icon 'VCS_UNTRACKED_ICON') ${unknown// /}%f" )
+    VCS_WORKDIR_HALF_DIRTY=true
+  else
+    VCS_WORKDIR_HALF_DIRTY=false
+	fi
 
 
   ahead=$(hg prompt '{outgoing|count}')
