@@ -196,7 +196,7 @@ function +vi-hg-shelves() {
 
   shelves=$(hg shelve -l | wc -l)
   if [[ $shelves -ne 0 ]]; then
-    hook_com[misc]+=" $(print_icon 'VCS_STASH_ICON')${shelves// /}"
+    hook_com[misc]+=" %F{$POWERLEVEL9K_VCS_FOREGROUND}$(print_icon 'VCS_STASH_ICON')${shelves// /}%f"
   fi
 }
 
