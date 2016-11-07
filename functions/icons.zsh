@@ -117,7 +117,7 @@ case $POWERLEVEL9K_MODE in
       VCS_INCOMING_CHANGES_ICON      $'\uF01A '             # 
       VCS_OUTGOING_CHANGES_ICON      $'\uF01B '             # 
       VCS_TAG_ICON                   $'\uF217 '             # 
-      VCS_BOOKMARK_ICON              $'\uF27B'              # 
+      VCS_BOOKMARK_ICON              $'\uF02E '             # 
       VCS_COMMIT_ICON                $'\uF221 '             # 
       VCS_BRANCH_ICON                $'\uF126'              # 
       VCS_REMOTE_BRANCH_ICON         ' '$'\uF204 '          # 
