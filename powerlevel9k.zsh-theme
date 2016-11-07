@@ -20,43 +20,44 @@
 #zstyle ':vcs_info:*+*:*' debug true
 #set -o xtrace
 
-# Check if the theme was called as a function (e.g., from prezto)
-if [[ $(whence -w prompt_powerlevel9k_setup) =~ "function" ]]; then
+# Try to set the installation path
+if [[ -n "$POWERLEVEL9K_INSTALLATION_PATH" ]]; then
+  # If an installation path was set manually,
+  # it should trump any other location found.
+  # Do nothing. This is all right, as we use the
+  # POWERLEVEL9K_INSTALLATION_PATH for further processing.
+elif [[ $(whence -w prompt_powerlevel9k_setup) =~ "function" ]]; then
+  # Check if the theme was called as a function (e.g., from prezto)
   autoload -U is-at-least
   if is-at-least 5.0.8; then
     # Try to find the correct path of the script.
-    0=$(whence -v $0 | sed "s/$0 is a shell function from //")
+    POWERLEVEL9K_INSTALLATION_PATH=$(whence -v $0 | sed "s/$0 is a shell function from //")
   elif [[ -f "${ZDOTDIR:-$HOME}/.zprezto/modules/prompt/init.zsh" ]]; then
     # If there is an prezto installation, we assume that powerlevel9k is linked there.
-    0="${ZDOTDIR:-$HOME}/.zprezto/modules/prompt/functions/prompt_powerlevel9k_setup"
-  else
-    # Fallback: specify an installation path!
-    if [[ -z "$POWERLEVEL9K_INSTALLATION_PATH" ]]; then
-      print -P "%F{red}We could not locate the installation path of powerlevel9k.%f"
-      print -P "Please specify by setting %F{blue}POWERLEVEL9K_INSTALLATION_PATH%f (full path incl. file name) at the very beginning of your ~/.zshrc"
-      return 1
-    elif [[ -L "$POWERLEVEL9K_INSTALLATION_PATH" ]]; then
-      # Symlink
-      0="$POWERLEVEL9K_INSTALLATION_PATH"
-    elif [[ -f "$POWERLEVEL9K_INSTALLATION_PATH" ]]; then
-      # File
-      0="$POWERLEVEL9K_INSTALLATION_PATH"
-    elif [[ -d "$POWERLEVEL9K_INSTALLATION_PATH" ]]; then
-      # Directory
-      0="${POWERLEVEL9K_INSTALLATION_PATH}/powerlevel9k.zsh-theme"
-    fi
+    POWERLEVEL9K_INSTALLATION_PATH="${ZDOTDIR:-$HOME}/.zprezto/modules/prompt/functions/prompt_powerlevel9k_setup"
   fi
+else
+  # Last resort: Set installation path is script path
+  POWERLEVEL9K_INSTALLATION_PATH="$0"
 fi
 
-# If this theme is sourced as a symlink, we need to locate the true URL
-if [[ -L $0 ]]; then
-  # Script is a symlink
-  filename="$(realpath -P $0 2>/dev/null || readlink -f $0 2>/dev/null || perl -MCwd=abs_path -le 'print abs_path readlink(shift);' $0 2>/dev/null)"
-elif [[ -f $0 ]]; then
+# Resolve the instllation path
+if [[ -L "$POWERLEVEL9K_INSTALLATION_PATH" ]]; then
+  # If this theme is sourced as a symlink, we need to locate the real URL
+  filename="$(realpath -P $POWERLEVEL9K_INSTALLATION_PATH 2>/dev/null || readlink -f $POWERLEVEL9K_INSTALLATION_PATH 2>/dev/null || perl -MCwd=abs_path -le 'print abs_path readlink(shift);' $POWERLEVEL9K_INSTALLATION_PATH 2>/dev/null)"
+elif [[ -d "$POWERLEVEL9K_INSTALLATION_PATH" ]]; then
+  # Directory
+  filename="${POWERLEVEL9K_INSTALLATION_PATH}/powerlevel9k.zsh-theme"
+elif [[ -f "$POWERLEVEL9K_INSTALLATION_PATH" ]]; then
   # Script is a file
-  filename="$0"
+  filename="$POWERLEVEL9K_INSTALLATION_PATH"
+elif [[ -z "$POWERLEVEL9K_INSTALLATION_PATH" ]]; then
+  # Fallback: specify an installation path!
+  print -P "%F{red}We could not locate the installation path of powerlevel9k.%f"
+  print -P "Please specify by setting %F{blue}POWERLEVEL9K_INSTALLATION_PATH%f (full path incl. file name) at the very beginning of your ~/.zshrc"
+  return 1
 else
-  print -P "%F{red}Script location could not be found!%f"
+  print -P "%F{red}Script location could not be found! Maybe your %F{blue}POWERLEVEL9K_INSTALLATION_PATH%F{red} is not correct?%f"
   return 1
 fi
 script_location="$(dirname $filename)"
@@ -290,13 +291,14 @@ CURRENT_BG='NONE'
 
 # Anaconda Environment
 prompt_anaconda() {
-  if $(hash ack 2>/dev/null); then
-    local active_conda_env=$(where conda | ack -o '(?<=envs/)[\w-]+(?=/bin)')
-  else
-    local active_conda_env=$(where conda | grep -o -P '(?<=envs/)[\w-]+(?=/bin)')
-  fi
-  if [[ -n $active_conda_env ]]; then
-    "$1_prompt_segment" "$0" "$2" "green" "black" "($active_conda_env)" ""
+  # Depending on the conda version, either might be set. This
+  # variant works even if both are set.
+  _path=$CONDA_ENV_PATH$CONDA_PREFIX
+  if ! [ -z "$_path" ]; then
+    # config - can be overwritten in users' zshrc file.
+    set_default POWERLEVEL9K_ANACONDA_LEFT_DELIMITER "("
+    set_default POWERLEVEL9K_ANACONDA_RIGHT_DELIMITER ")"
+    "$1_prompt_segment" "$0" "$2" "$3" "$4" "$POWERLEVEL9K_ANACONDA_LEFT_DELIMITER$(basename $_path)$POWERLEVEL9K_ANACONDA_RIGHT_DELIMITER" 'PYTHON_ICON'
   fi
 }
 
@@ -359,7 +361,7 @@ prompt_battery() {
     local time_remaining=$(echo $raw_data | grep TimeRemaining | awk '{ print $5 }')
     if [[ -n $time_remaining ]]; then
       # this value is set to a very high number when the system is calculating
-      [[ $time_remaining -gt 10000 ]] && local tstring="..." || local tstring=${(f)$(date -u -r $(($time_remaining * 60)) +%k:%M)}
+      [[ $time_remaining -gt 10000 ]] && local tstring="..." || local tstring=${(f)$(/bin/date -u -r $(($time_remaining * 60)) +%k:%M)}
     fi
 
     # Get charge values
@@ -419,6 +421,8 @@ prompt_battery() {
   set_default POWERLEVEL9K_BATTERY_VERBOSE true
   if [[ "$POWERLEVEL9K_BATTERY_VERBOSE" == true ]]; then
     message="$bat_percent%%$remain"
+  else
+    message="$bat_percent%%"
   fi
 
   # Draw the prompt_segment
@@ -444,8 +448,11 @@ prompt_context() {
 # the output in a segment.
 prompt_custom() {
   local command=POWERLEVEL9K_CUSTOM_$3:u
+  local segment_content="$(eval ${(P)command})"
 
-  "$1_prompt_segment" "${0}_${3:u}" "$2" $DEFAULT_COLOR_INVERTED $DEFAULT_COLOR "$(eval ${(P)command})"
+  if [[ -n $segment_content ]]; then
+    "$1_prompt_segment" "${0}_${3:u}" "$2" $DEFAULT_COLOR_INVERTED $DEFAULT_COLOR "$segment_content"
+  fi
 }
 
 # Dir: current working directory
@@ -460,42 +467,34 @@ prompt_dir() {
         current_path=$(pwd | sed -e "s,^$HOME,~," | sed $SED_EXTENDED_REGEX_PARAMETER "s/([^/]{$POWERLEVEL9K_SHORTEN_DIR_LENGTH})[^/]+([^/]{$POWERLEVEL9K_SHORTEN_DIR_LENGTH})\//\1$POWERLEVEL9K_SHORTEN_DELIMITER\2\//g")
       ;;
       truncate_from_right)
-        current_path=$(truncatePathFromRight $(pwd | sed -e "s,^$HOME,~,") )
+        current_path=$(truncatePathFromRight "$(pwd | sed -e "s,^$HOME,~,")" )
       ;;
       truncate_with_package_name)
         local name repo_path package_path current_dir zero
 
         # Get the path of the Git repo, which should have the package.json file
-        if repo_path=$(git rev-parse --git-dir 2>/dev/null); then
-          if [[ "$repo_path" == ".git" ]]; then
-            # If the current path is the root of the project, then the package path is
-            # the current directory and we don't want to append anything to represent
-            # the path to a subdirectory
-            package_path="."
-            subdirectory_path=""
-          else
-            # If the current path is something else, get the path to the package.json
-            # file by finding the repo path and removing the '.git` from the path
-            package_path=${repo_path:0:-4}
-            zero='%([BSUbfksu]|([FB]|){*})'
-            current_dir=$(pwd)
-            # Then, find the length of the package_path string, and save the
-            # subdirectory path as a substring of the current directory's path from 0
-            # to the length of the package path's string
-            subdirectory_path=$(truncatePathFromRight "/${current_dir:${#${(S%%)package_path//$~zero/}}}")
-          fi
+        if [[ $(git rev-parse --is-inside-work-tree 2> /dev/null) == "true" ]]; then
+          package_path=$(git rev-parse --show-toplevel)
+        elif [[ $(git rev-parse --is-inside-git-dir 2> /dev/null) == "true" ]]; then
+          package_path=${$(pwd)%%/.git*}
         fi
 
+        zero='%([BSUbfksu]|([FB]|){*})'
+        current_dir=$(pwd)
+        # Then, find the length of the package_path string, and save the
+        # subdirectory path as a substring of the current directory's path from 0
+        # to the length of the package path's string
+        subdirectory_path=$(truncatePathFromRight "${current_dir:${#${(S%%)package_path//$~zero/}}}")
         # Parse the 'name' from the package.json; if there are any problems, just
         # print the file path
-        if name=$( cat "$package_path/package.json" 2> /dev/null | grep "\"name\""); then
+        if name=$( cat "$package_path/package.json" 2> /dev/null | grep -m 1 "\"name\""); then
           name=$(echo $name | awk -F ':' '{print $2}' | awk -F '"' '{print $2}')
 
           # Instead of printing out the full path, print out the name of the package
           # from the package.json and append the current subdirectory
           current_path="`echo $name | tr -d '"'`$subdirectory_path"
         else
-          current_path=$(truncatePathFromRight $(pwd | sed -e "s,^$HOME,~,") )
+          current_path=$(truncatePathFromRight "$(pwd | sed -e "s,^$HOME,~,")" )
         fi
       ;;
       *)
@@ -591,9 +590,13 @@ prompt_load() {
     'normal'        'green'
   )
 
-  if [[ "$OS" == "OSX" ]]; then
+  if [[ "$OS" == "OSX" ]] || [[ "$OS" == "BSD" ]]; then
     load_avg_1min=$(sysctl vm.loadavg | grep -o -E '[0-9]+(\.|,)[0-9]+' | head -n 1)
-    cores=$(sysctl -n hw.logicalcpu)
+    if [[ "$OS" == "OSX" ]]; then
+      cores=$(sysctl -n hw.logicalcpu)
+    else
+      cores=$(sysctl -n hw.ncpu)
+    fi
   else
     load_avg_1min=$(grep -o "[0-9.]*" /proc/loadavg | head -n 1)
     cores=$(nproc)
@@ -666,8 +669,13 @@ prompt_ram() {
     # Convert pages into Bytes
     ramfree=$(( ramfree * 4096 ))
   else
-    ramfree=$(grep -o -E "MemFree:\s+[0-9]+" /proc/meminfo | grep -o "[0-9]*")
-    base='K'
+    if [[ "$OS" == "BSD" ]]; then
+      ramfree=$(vmstat | grep -E '([0-9]+\w+)+' | awk '{print $5}')
+      base='M'
+    else
+      ramfree=$(grep -o -E "MemFree:\s+[0-9]+" /proc/meminfo | grep -o "[0-9]*")
+      base='K'
+    fi
   fi
 
   "$1_prompt_segment" "$0" "$2" "yellow" "$DEFAULT_COLOR" "$(printSizeHumanReadable "$ramfree" $base)" 'RAM_ICON'
@@ -838,7 +846,7 @@ prompt_todo() {
 set_default POWERLEVEL9K_VCS_ACTIONFORMAT_FOREGROUND "red"
 # Default: Just display the first 8 characters of our changeset-ID.
 set_default POWERLEVEL9K_VCS_INTERNAL_HASH_LENGTH "8"
-prompt_vcs() {
+powerlevel9k_vcs_init() {
   if [[ -n "$POWERLEVEL9K_CHANGESET_HASH_LENGTH" ]]; then
     POWERLEVEL9K_VCS_INTERNAL_HASH_LENGTH="$POWERLEVEL9K_CHANGESET_HASH_LENGTH"
   fi
@@ -850,8 +858,7 @@ prompt_vcs() {
   VCS_WORKDIR_HALF_DIRTY=false
 
   # The vcs segment can have three different states - defaults to 'clean'.
-  local current_state=""
-  typeset -AH vcs_states
+  typeset -gAH vcs_states
   vcs_states=(
     'clean'         'green'
     'modified'      'yellow'
@@ -863,7 +870,7 @@ prompt_vcs() {
     VCS_CHANGESET_PREFIX="$(print_icon 'VCS_COMMIT_ICON')%0.$POWERLEVEL9K_VCS_INTERNAL_HASH_LENGTH""i "
   fi
 
-  zstyle ':vcs_info:*' enable git hg
+  zstyle ':vcs_info:*' enable git hg svn
   zstyle ':vcs_info:*' check-for-changes true
 
   VCS_DEFAULT_FORMAT="$VCS_CHANGESET_PREFIX%b%c%u%m"
@@ -878,6 +885,8 @@ prompt_vcs() {
   zstyle ':vcs_info:git*+set-message:*' hooks $POWERLEVEL9K_VCS_GIT_HOOKS
   defined POWERLEVEL9K_VCS_HG_HOOKS || POWERLEVEL9K_VCS_HG_HOOKS=(vcs-detect-changes hg-untracked hg-aheadbehind hg-shelves)
   zstyle ':vcs_info:hg*+set-message:*' hooks $POWERLEVEL9K_VCS_HG_HOOKS
+  defined POWERLEVEL9K_VCS_SVN_HOOKS || POWERLEVEL9K_VCS_SVN_HOOKS=(vcs-detect-changes svn-detect-changes)
+  zstyle ':vcs_info:svn*+set-message:*' hooks $POWERLEVEL9K_VCS_SVN_HOOKS
 
   # For Hg, only show the branch name
   zstyle ':vcs_info:hg*:*' branchformat "$(print_icon 'VCS_BRANCH_ICON')%b"
@@ -889,6 +898,12 @@ prompt_vcs() {
   if [[ "$POWERLEVEL9K_SHOW_CHANGESET" == true ]]; then
     zstyle ':vcs_info:*' get-revision true
   fi
+}
+
+prompt_vcs() {
+  VCS_WORKDIR_DIRTY=false
+  VCS_WORKDIR_HALF_DIRTY=false
+  current_state=""
 
   # Actually invoke vcs_info manually to gather all information.
   vcs_info
@@ -930,18 +945,31 @@ prompt_vi_mode() {
 prompt_virtualenv() {
   local virtualenv_path="$VIRTUAL_ENV"
   if [[ -n "$virtualenv_path" && "$VIRTUAL_ENV_DISABLE_PROMPT" != true ]]; then
-    "$1_prompt_segment" "$0" "$2" "blue" "$DEFAULT_COLOR" "($(basename "$virtualenv_path"))"
+    "$1_prompt_segment" "$0" "$2" "blue" "$DEFAULT_COLOR" "$(basename "$virtualenv_path")" 'PYTHON_ICON'
+  fi
+}
+
+# pyenv: current active python version (with restrictions)
+# More information on pyenv (Python version manager like rbenv and rvm):
+# https://github.com/yyuu/pyenv
+# the prompt parses output of pyenv version and only displays the first word
+prompt_pyenv() {
+  local pyenv_version="$(pyenv version 2>/dev/null)"
+  pyenv_version="${pyenv_version%% *}"
+  # XXX: The following should return the same as above.
+  # This reads better for devs familiar with sed/awk/grep/cut utilities
+  # Using shell expansion/substitution may hamper future maintainability
+  #local pyenv_version="$(pyenv version 2>/dev/null | head -n1 | cut -d' ' -f1)"
+  if [[ -n "$pyenv_version" && "$pyenv_version" != "system" ]]; then
+    "$1_prompt_segment" "$0" "$2" "blue" "$DEFAULT_COLOR" "$pyenv_version" 'PYTHON_ICON'
   fi
 }
 
 ################################################################
 # Prompt processing and drawing
 ################################################################
-
 # Main prompt
 build_left_prompt() {
-  defined POWERLEVEL9K_LEFT_PROMPT_ELEMENTS || POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(context dir rbenv vcs $POWERLEVEL9K_LEFT_PROMPT_EXTRA_ELEMENTS)
-
   local index=1
   for element in "${POWERLEVEL9K_LEFT_PROMPT_ELEMENTS[@]}"; do
     # Remove joined information in direct calls
@@ -963,8 +991,6 @@ build_left_prompt() {
 
 # Right prompt
 build_right_prompt() {
-  defined POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS || POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=(status root_indicator background_jobs history time)
-
   local index=1
   for element in "${POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS[@]}"; do
     # Remove joined information in direct calls
@@ -1012,40 +1038,29 @@ $(print_icon 'MULTILINE_SECOND_PROMPT_PREFIX')"
   fi
 }
 
-function zle-line-init {
-  powerlevel9k_prepare_prompts
-  if (( ${+terminfo[smkx]} )); then
-    printf '%s' ${terminfo[smkx]}
-  fi
-  zle reset-prompt
-  zle -R
-}
-
-function zle-line-finish {
-  powerlevel9k_prepare_prompts
-  if (( ${+terminfo[rmkx]} )); then
-    printf '%s' ${terminfo[rmkx]}
-  fi
-  zle reset-prompt
-  zle -R
-}
-
-function zle-keymap-select {
-  powerlevel9k_prepare_prompts
-  zle reset-prompt
-  zle -R
-}
-
 powerlevel9k_init() {
   # Display a warning if the terminal does not support 256 colors
   local term_colors
   term_colors=$(echotc Co)
-  if (( term_colors < 256 )); then
+  if (( $term_colors < 256 )); then
     print -P "%F{red}WARNING!%f Your terminal appears to support less than 256 colors!"
     print -P "If your terminal supports 256 colors, please export the appropriate environment variable"
     print -P "_before_ loading this theme in your \~\/.zshrc. In most terminal emulators, putting"
     print -P "%F{blue}export TERM=\"xterm-256color\"%f at the top of your \~\/.zshrc is sufficient."
   fi
+
+  # If the terminal `LANG` is set to `C`, this theme will not work at all.
+  local term_lang
+  term_lang=$(echo $LANG)
+  if [[ $term_lang == 'C' ]]; then
+      print -P "\t%F{red}WARNING!%f Your terminal's 'LANG' is set to 'C', which breaks this theme!"
+      print -P "\t%F{red}WARNING!%f Please set your 'LANG' to a UTF-8 language, like 'en_US.UTF-8'"
+      print -P "\t%F{red}WARNING!%f _before_ loading this theme in your \~\.zshrc. Putting"
+      print -P "\t%F{red}WARNING!%f %F{blue}export LANG=\"en_US.UTF-8\"%f at the top of your \~\/.zshrc is sufficient."
+  fi
+
+	defined POWERLEVEL9K_LEFT_PROMPT_ELEMENTS || POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(context dir rbenv vcs $POWERLEVEL9K_LEFT_PROMPT_EXTRA_ELEMENTS)
+  defined POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS || POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=(status root_indicator background_jobs history time)
 
   # Display a warning if deprecated segments are in use.
   typeset -AH deprecated_segments
@@ -1064,15 +1079,16 @@ powerlevel9k_init() {
   # initialize colors
   autoload -U colors && colors
 
+  if segment_in_use "vcs"; then
+    powerlevel9k_vcs_init
+  fi
+
   # initialize hooks
   autoload -Uz add-zsh-hook
 
   # prepare prompts
   add-zsh-hook precmd powerlevel9k_prepare_prompts
-
-  zle -N zle-line-init
-  zle -N zle-line-finish
-  zle -N zle-keymap-select
 }
 
 powerlevel9k_init "$@"
+
